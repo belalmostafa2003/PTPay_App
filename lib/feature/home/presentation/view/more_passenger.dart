@@ -105,8 +105,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               CircleAvatar(
                 radius: 40,
                 backgroundImage: AssetImage(
-                  'assets/images/SampleGeorge.jpg', // استبدلها برابط الصورة الحقيقي
-                ),
+                  'assets/icon/personal.png', // استبدلها برابط الصورة الحقيقي
+                ),  
                 backgroundColor: Colors.transparent,
               ),
               const SizedBox(height: 12),
