@@ -1,0 +1,54 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ptpayapp/core/utils/gorouter.dart';
+
+class SaveButton extends StatelessWidget {
+  final bool isFormValid;
+
+  const SaveButton({
+    super.key,
+    required this.isFormValid,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isFormValid
+          ? () {
+        GoRouter.of(context).push(AppRouter.KConfirmCreationNewPassword);
+      }
+          : null,
+      child: Center(
+        child: Container(
+          width: 300,
+          height: 60,
+          decoration: BoxDecoration(
+            color: isFormValid ? Colors.black : Colors.white,
+            borderRadius: BorderRadius.circular(25),
+            boxShadow: isFormValid
+                ? [] // لا يوجد ظل إذا كانت البيانات صالحة
+                : [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              'حفظ',
+              style: TextStyle(
+                color: isFormValid ? Colors.white : Colors.grey,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Alexandria',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

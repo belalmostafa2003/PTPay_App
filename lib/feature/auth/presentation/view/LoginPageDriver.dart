@@ -1,0 +1,267 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ptpayapp/core/utils/gorouter.dart';
+import 'package:ptpayapp/core/widget/logo.dart';
+import 'package:ptpayapp/feature/auth/presentation/view/widget/loginDriver_widgets/LoginButtonWidget.dart';
+import 'package:ptpayapp/feature/auth/presentation/view/widget/loginDriver_widgets/TextformWidget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class LoginPageDriver extends StatefulWidget {
+  const LoginPageDriver({super.key});
+
+  @override
+  State<LoginPageDriver> createState() => _LoginPageDriverState();
+}
+
+class _LoginPageDriverState extends State<LoginPageDriver> {
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _licenseController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isDataEntered = false;
+
+  void _checkDataEntered(String phone, String license, String password) {
+    setState(() {
+      _isDataEntered = phone.isNotEmpty
+          && license.isNotEmpty
+          && password.isNotEmpty;
+      });
+  }
+
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: 'https://ahmed80800.pythonanywhere.com/api/',
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+      validateStatus: (status) => status != null && status < 500,
+    ),
+  );
+
+  Future<void> _handleLogin() async {
+    final phone    = _phoneController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (phone.isEmpty || password.isEmpty) {
+      print("لم يتم إدخال رقم الهاتف أو كلمة المرور");
+      return;
+    }
+
+    try {
+      // 1) تسجيل الدخول
+      final response = await _dio.post(
+        'driver/token/',
+        data: {
+          'phone':          phone,
+          'password':       password,
+          'license_number': _licenseController.text.trim(),
+        },
+      );
+
+      if (response.statusCode != 200 || response.data['access'] == null) {
+        final detail = (response.data is Map && response.data['detail'] != null)
+            ? response.data['detail']
+            : "تأكد من صحة البيانات.";
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("فشل تسجيل الدخول: $detail")),
+        );
+        return;
+      }
+
+      final accessToken = response.data['access'] as String;
+      final driverId    = response.data['driver_id']?.toString() ?? '';
+      final driverName  = response.data['name'] as String? ?? '';
+      final driverBalance = (response.data['balance'] is num)
+          ? (response.data['balance'] as num).toDouble()
+          : 0.0;
+      final driverPending = (response.data['pending_balance'] is num)
+          ? (response.data['pending_balance'] as num).toDouble()
+          : 0.0;
+
+      // 2) جلب بيانات السائق (assigned_route, vehicles)
+      int? assignedRouteId;
+      int? assignedVehicleId;
+      String? assignedRouteName;
+
+      try {
+        final driverResp = await _dio.get(
+          'driver/$driverId/',
+          options: Options(
+            headers: {
+              'Authorization': 'Bearer $accessToken',
+            },
+          ),
+        );
+
+        print("driverResp status: ${driverResp.statusCode}");
+        print("driverResp data: ${driverResp.data}");
+
+        if (driverResp.statusCode == 200) {
+          final data = driverResp.data as Map<String, dynamic>;
+          assignedRouteId   = data['assigned_route'] as int?;
+          assignedRouteName = data['assigned_route_name'] as String?;
+          final vehiclesRaw = data['vehicles'] as List<dynamic>?;
+          if (vehiclesRaw != null && vehiclesRaw.isNotEmpty) {
+            assignedVehicleId = vehiclesRaw.first as int;
+          }
+        } else {
+          print("خطأ في جلب بيانات السائق: ${driverResp.statusCode}");
+        }
+      } catch (e) {
+        print("استثناء أثناء جلب بيانات السائق: $e");
+      }
+
+      // 3) الانتقال للشاشة الرئيسية مهما كانت نتيجة جلب البيانات
+      context.push(
+
+        AppRouter.KHomepageDriver,
+        extra: {
+          'name'           : driverName,
+          'driverId'       : driverId,
+          'token'          : accessToken,
+          'initialVehicleId': assignedVehicleId,
+          'initialRouteId' : assignedRouteId,
+          'initialRouteName': assignedRouteName,
+          'initialBalance' : driverBalance,
+          'initialPending' : driverPending,
+        },
+      );
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("حدث خطأ: $e")),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _licenseController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 30),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(height: 20,),
+                      InkWell(
+                        onTap: (){
+                          GoRouter.of(context).push(AppRouter.KChooseLocationFirst);
+                        },
+                        child: Row(
+                          children: [
+                            Icon(Icons.arrow_back_ios_new_outlined, color: Colors.black,size: 16,),
+                            SizedBox(width: 3,),
+                            Text("عودة",
+                              style: TextStyle(fontSize: 16,
+                                color: Colors.black,
+                                fontWeight: FontWeight.w400,
+                                fontFamily: 'Alexandria',
+                              ),),
+                          ],
+                        ),
+                      ),
+                      Container(
+                          height: 50,
+                          width: 110,
+                          child: const Logo()),
+                      const SizedBox(height: 60),
+                      Center(
+                        child: Text(
+                          'تسجيل الدخول السائق',
+                          style: TextStyle(
+                            fontSize: 25,
+                            fontFamily: 'Alexandria',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 37),
+                      TextformWidgetDriver(
+                        phoneController: _phoneController,
+                        licenseController: _licenseController,
+                        passwordController: _passwordController,
+                        onDataEntered: _checkDataEntered,
+                      ),
+                      const SizedBox(height: 9),
+                      InkWell(
+                        onTap: () {
+                          GoRouter.of(context).push(AppRouter.KForgetpassword);
+                        },
+                        child: const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'نسيت كلمة المرور؟',
+                            style: TextStyle(
+                              color: Color(0xFFF4B300),
+                              fontSize: 12,
+                              fontFamily: 'Alexandria',
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0.60,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 80),
+                      LoginButtonWidgetDriver(
+                        isDataEntered: _isDataEntered,
+                        onTap: _handleLogin,
+                      ),
+                      const SizedBox(height: 15),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              GoRouter.of(context)
+                                  .push(AppRouter.KChooseLocationSecond);
+                            },
+                            child: const Text(
+                              "إنشاء حساب ",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w400,
+                                fontSize: 14,
+                                color: Color(0xFFF4B300),
+                                fontFamily: 'Alexandria',
+                              ),
+                            ),
+                          ),
+                          const Text(
+                            "ليس لديك حساب ؟ ",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w400,
+                              fontSize: 14,
+                                color: Color(0xffACACAC),
+                              fontFamily: 'Alexandria',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
