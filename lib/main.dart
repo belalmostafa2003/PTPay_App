@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:ptpayapp/core/utils/gorouter.dart';
+import 'package:device_preview/device_preview.dart';
 
+void main() {
+  runApp(
+    DevicePreview(
+      enabled: false,
+      builder: (context) => const PTPayApp(),
+    ),
+  );
+}
 
-void main() => runApp(
-  const PTPayApp(),
-);
 class PTPayApp extends StatelessWidget {
   const PTPayApp({super.key});
 
@@ -13,7 +19,9 @@ class PTPayApp extends StatelessWidget {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       routerConfig: AppRouter.router,
-      //home: PaymentSuccessPage(tripNumber: 1, amount: 9, dateTime: '', balance: 7, ),
+      useInheritedMediaQuery: true, 
+      locale: DevicePreview.locale(context), 
+      builder: DevicePreview.appBuilder, 
     );
   }
 }
